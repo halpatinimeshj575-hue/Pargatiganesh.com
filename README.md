@@ -1,1 +1,0 @@
-# Pargatiganesh.com

@@ -1,0 +1,335 @@
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>श्री प्रगति गणेश युवक मंडल - लाइव हिसाब</title>
+    
+    <!-- PWA मोबाइल ऐप सेटअप -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"श्री प्रगति गणेश मंडल ऐप","short_name":"गणेश मंडल","start_url":"./","display":"standalone","background_color":"%23f3f4f6","theme_color":"%23ea580c","orientation":"portrait"}'>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Firebase SDKs (Firestore & Auth के लिए न्यू वर्जन) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <!-- कड़क Orange UI थीम डिज़ाइन -->
+    <style>
+        body { font-family: sans-serif; background-color: #f3f4f6; margin: 0; padding: 0; box-sizing: border-box; }
+        .header { background-color: #ea580c; color: white; text-align: center; padding: 20px 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 50; }
+        .header h1 { margin: 0; font-size: 22px; font-weight: bold; }
+        .header p { margin: 5px 0 0 0; font-size: 12px; color: #ffedd5; }
+        .container { max-width: 600px; margin: 0 auto; padding: 15px; padding-bottom: 80px; }
+        
+        /* Summary Cards */
+        .grid { display: grid; grid-template-cols: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .card-full { grid-column: span 2; }
+        .card { background: white; padding: 12px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
+        .card p { margin: 0; font-size: 11px; color: #6b7280; font-weight: bold; text-transform: uppercase; }
+        .card h2 { margin: 5px 0 0 0; font-size: 20px; font-weight: 800; }
+        .c-orange { border-bottom: 4px solid #ea580c; }
+        .c-green { border-bottom: 4px solid #16a34a; color: #16a34a; }
+        .c-blue { border-bottom: 4px solid #2563eb; color: #2563eb; }
+        .c-red { border-bottom: 4px solid #dc2626; color: #dc2626; }
+        .c-purple { border-bottom: 4px solid #9333ea; color: #9333ea; }
+
+        /* Search & Filters */
+        .search-box { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        .search-input-wrapper { position: relative; width: 100%; }
+        .search-input-wrapper i { position: absolute; left: 12px; top: 12px; color: #9ca3af; }
+        .search-input { width: 100%; padding: 10px 10px 10px 35px; border: 1px solid #d1d5db; border-radius: 8px; box-sizing: border-box; font-size: 14px; }
+        .filter-buttons { display: flex; gap: 8px; margin-top: 12px; }
+        .btn-filter { flex: 1; padding: 8px; font-size: 13px; font-weight: 500; border: none; border-radius: 8px; cursor: pointer; background-color: #e5e7eb; color: #374151; }
+        .btn-filter.active { background-color: #ea580c; color: white; }
+
+        /* Sections */
+        .section-box { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden; }
+        .section-title { padding: 12px 15px; background: #f9fafb; font-weight: bold; font-size: 14px; color: #374151; border-bottom: 1px solid #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
+        .section-title.expense-head { background: #fef2f2; color: #991b1b; }
+        .list-container { max-height: 300px; overflow-y: auto; }
+        .row-item { padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
+        
+        /* Badges & Action Buttons */
+        .badge-paid { background-color: #f0fdf4; color: #16a34a; font-weight: bold; padding: 4px 12px; border-radius: 9999px; font-size: 13px; }
+        .btn-pending { background-color: #fef9c3; color: #a16207; font-weight: bold; padding: 5px 12px; border: none; border-radius: 9999px; font-size: 12px; }
+        .btn-add-exp { background-color: #dc2626; color: white; padding: 5px 10px; border: none; border-radius: 6px; font-size: 12px; font-weight: bold; cursor: pointer; display: none; }
+        .btn-trash { color: #ef4444; border: none; background: none; cursor: pointer; margin-right: 10px; display: none; }
+
+        /* Control Panel */
+        .admin-panel { background: #fffbeb; border: 1px solid #fef3c7; padding: 15px; border-radius: 12px; text-align: center; margin-bottom: 30px; }
+        .admin-panel h3 { margin: 0 0 10px 0; font-size: 13px; color: #92400e; font-weight: bold; }
+        .flex-buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+        .btn-action { padding: 8px 14px; font-size: 12px; font-weight: bold; border: none; border-radius: 8px; color: white; cursor: pointer; }
+        .bg-green { background-color: #16a34a; }
+        .bg-amber { background-color: #d97706; }
+        .bg-blue { background-color: #4285F4; }
+        .bg-red { background-color: #dc2626; }
+        .hidden-admin { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🙏 श्री प्रगति गणेश युवक मंडल 🙏</h1>
+        <p id="sync-status">🔄 फायरबेस स्टोर सर्वर से सिंक हो रहा है...</p>
+    </div>
+
+    <div class="container">
+        <!-- Live Summary Board -->
+        <div class="grid">
+            <div class="card c-orange"><p>कुल सदस्य</p><h2 id="total-members-count">0</h2></div>
+            <div class="card c-green"><p>जमा वाले</p><h2 id="paid-count">0</h2></div>
+            <div class="card c-blue"><p>कुल चंदा</p><h2 id="total-collection">₹0</h2></div>
+            <div class="card c-red"><p>कुल खर्च</p><h2 id="total-expenses">₹0</h2></div>
+            <div class="card card-full c-purple"><p>बचे पैसे (कैश बैलेंस)</p><h2 id="net-balance">₹0</h2></div>
+        </div>
+
+        <!-- Search Bar & Filters -->
+        <div class="search-box">
+            <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-input" placeholder="सदस्य का नाम खोजें..." class="search-input">
+            </div>
+            <div class="filter-buttons">
+                <button onclick="filterMembers('all')" id="btn-all" class="btn-filter active">सभी</button>
+                <button onclick="filterMembers('paid')" id="btn-paid" class="btn-filter">जमा</button>
+                <button onclick="filterMembers('pending')" id="btn-pending" class="btn-filter">बाकी</button>
+            </div>
+        </div>
+
+        <!-- Members Section -->
+        <div class="section-box">
+            <div class="section-title">
+                <span><i class="fa-solid fa-chart-pie mr-1" style="color:#ea580c"></i> सदस्यवार चंदा विवरण</span>
+            </div>
+            <div id="members-list" class="list-container"></div>
+        </div>
+
+        <!-- Expense Section -->
+        <div class="section-box" style="border: 1px solid #fee2e2;">
+            <div class="section-title expense-head">
+                <span><i class="fa-solid fa-wallet mr-1"></i> खर्चों का विवरण</span>
+                <button onclick="addExpense()" id="add-exp-btn" class="btn-add-exp">➕ नया खर्च जोड़ें</button>
+            </div>
+            <div id="expenses-list" class="list-container"></div>
+        </div>
+
+        <!-- Google Auth Control Panel -->
+        <div class="admin-panel">
+            <h3 id="admin-title">🔒 जनता मोड (रीड-ओनली एक्टिव)</h3>
+            <div class="flex-buttons">
+                <button onclick="googleAuth()" id="login-btn" class="btn-action bg-blue"><i class="fa-brands fa-google"></i> एडमिन गूगल लॉगिन</button>
+                <button onclick="addNewMember()" id="add-mem-btn" class="btn-action bg-green hidden-admin">नया सदस्य जोड़ें</button>
+                <button onclick="editMemberName()" id="edit-mem-btn" class="btn-action bg-amber hidden-admin">नाम सुधारें</button>
+                <button onclick="logout()" id="logout-btn" class="btn-action bg-red hidden-admin">लॉगआउट</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 🔐 आपकी तिजोरी की फाइनल सिक्योर कॉन्फ़िगरेशन चाबी
+        const firebaseConfig = {
+            apiKey: "AIzaSyAh2lcxstR_mTQQI-pabY77ug9MWK9x4m4",
+            authDomain: "pragati-ganesh-mandal.firebaseapp.com",
+            projectId: "pragati-ganesh-mandal",
+            storageBucket: "pragati-ganesh-mandal.firebasestorage.app",
+            messagingSenderId: "306990038856",
+            appId: "1:306990038856:web:173fd8795068bc14a9fd7d"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        let isAuthorizedAdmin = false;
+        let currentFilter = 'all';
+        let searchQuery = '';
+
+        let localMembers = [];
+        let localExpenses = [];
+
+        // ⚡ स्टेप 3: Firestore Real-time Engine (बिना लॉगिन सीधे लाइव लोड और ऑफ़लाइन बैकअप)
+        function startLiveSync() {
+            // सदस्यों का रियल-टाइम सिंक
+            db.collection("members").onSnapshot((snapshot) => {
+                localMembers = [];
+                snapshot.forEach(doc => {
+                    localMembers.push({ id: doc.id, ...doc.data() });
+                });
+                
+                // अगर डेटाबेस एकदम फ्रेश और खाली है, तो शुरुआती नाम जोड़ना
+                if (localMembers.length === 0 && isAuthorizedAdmin) {
+                    const defaultNames = ["निमेष भाई", "राहुल भाई", "रोहन पटेल", "निर्मल कुमार", "कार्तिक हलपति"];
+                    defaultNames.forEach((name, i) => {
+                        db.collection("members").doc(`m${i+1}`).set({ name: name, status: "pending", amount: 0 });
+                    });
+                }
+
+                localStorage.setItem('cached_members', JSON.stringify(localMembers));
+                document.getElementById('sync-status').innerText = "🚀 फायरबेस स्टोर लाइव सिंक एक्टिव!";
+                refreshUI();
+            }, error => {
+                loadOfflineBackup();
+            });
+
+            // खर्चों का रियल-टाइम सिंक
+            db.collection("expenses").onSnapshot((snapshot) => {
+                localExpenses = [];
+                snapshot.forEach(doc => {
+                    localExpenses.push({ id: doc.id, ...doc.data() });
+                });
+                localStorage.setItem('cached_expenses', JSON.stringify(localExpenses));
+                refreshUI();
+            });
+        }
+
+        // ऑफ़लाइन मोड बैकअप (इंटरनेट न होने पर काम करेगा)
+        function loadOfflineBackup() {
+            localMembers = JSON.parse(localStorage.getItem('cached_members')) || [];
+            localExpenses = JSON.parse(localStorage.getItem('cached_expenses')) || [];
+            document.getElementById('sync-status').innerText = "⚠️ ऑफलाइन मोड (लोकल मेमोरी एक्टिव)";
+            refreshUI();
+        }
+
+        // 🔐 Google Login Auth Engine
+        function googleAuth() {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            auth.signInWithPopup(provider).catch(err => alert("लॉगिन फेल: " + err.message));
+        }
+
+        function logout() {
+            auth.signOut().then(() => location.reload());
+        }
+
+        // चेक करें कि क्या यूजर एडमिन है और एडिटिंग लॉक/अनलॉक करें
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                isAuthorizedAdmin = true;
+                document.getElementById('login-btn').classList.add('hidden-admin');
+                document.getElementById('logout-btn').classList.remove('hidden-admin');
+                document.getElementById('add-mem-btn').classList.remove('hidden-admin');
+                document.getElementById('edit-mem-btn').classList.remove('hidden-admin');
+                document.getElementById('add-exp-btn').style.display = "block";
+                document.getElementById('admin-title').innerText = `🔓 एडमिन मोड एक्टिव: ${user.displayName}`;
+                document.getElementById('admin-title').style.color = "#16a34a";
+            } else {
+                isAuthorizedAdmin = false;
+                document.getElementById('login-btn').classList.remove('hidden-admin');
+                document.getElementById('logout-btn').classList.add('hidden-admin');
+                document.getElementById('add-mem-btn').classList.add('hidden-admin');
+                document.getElementById('edit-mem-btn').classList.add('hidden-admin');
+                document.getElementById('add-exp-btn').style.display = "none";
+            }
+            startLiveSync();
+        });
+
+        function refreshUI() {
+            let paidCount = 0, totalAmt = 0, totalExp = 0;
+
+            localMembers.forEach(m => {
+                if (m.status === 'paid') { paidCount++; totalAmt += parseInt(m.amount || 0); }
+            });
+            localExpenses.forEach(e => totalExp += parseInt(e.amount || 0));
+
+            document.getElementById('total-members-count').innerText = localMembers.length;
+            document.getElementById('paid-count').innerText = paidCount;
+            document.getElementById('total-collection').innerText = `₹${totalAmt}`;
+            document.getElementById('total-expenses').innerText = `₹${totalExp}`;
+            document.getElementById('net-balance').innerText = `₹${totalAmt - totalExp}`;
+
+            // सदस्यों की लिस्ट जनरेट करना
+            const listContainer = document.getElementById('members-list');
+            listContainer.innerHTML = '';
+            
+            localMembers.forEach(m => {
+                if (m.name.toLowerCase().includes(searchQuery.toLowerCase()) && (currentFilter === 'all' || m.status === currentFilter)) {
+                    const item = document.createElement('div');
+                    item.className = "row-item";
+                    
+                    let badge = m.status === 'paid' 
+                        ? `<span class='badge-paid'>₹${m.amount} जमा</span>` 
+                        : (isAuthorizedAdmin 
+                            ? `<button onclick="markAsPaid('${m.id}')" class='btn-pending' style='cursor:pointer; background:#ea580c; color:white;'>💸 जमा करें</button>`
+                            : `<span class='btn-pending'>💸 बाकी</span>`);
+                    
+                    item.innerHTML = `<div><span style="color:#9ca3af; font-weight:bold; margin-right:8px;">${m.id.toUpperCase()}</span><span style="font-weight:500; color:#1f2937;">${m.name}</span></div><div>${badge}</div>`;
+                    listContainer.appendChild(item);
+                }
+            });
+
+            // खर्चों की लिस्ट जनरेट करना
+            const expContainer = document.getElementById('expenses-list');
+            expContainer.innerHTML = '';
+            
+            if(localExpenses.length > 0) {
+                localExpenses.forEach(e => {
+                    const item = document.createElement('div');
+                    item.className = "row-item";
+                    let trashBtn = isAuthorizedAdmin ? `<button onclick="deleteExpense('${e.id}')" class='btn-trash' style='display:inline-block;'><i class="fa-solid fa-trash-can"></i></button>` : "";
+                    item.innerHTML = `<div>${trashBtn}<span style="font-weight:500; color:#4b5563;">${e.title}</span></div><div style='color:#dc2626; font-weight:bold; background:#fee2e2; padding:4px 12px; border-radius:9999px; font-size:13px;'>₹${e.amount}</div>`;
+                    expContainer.appendChild(item);
+                });
+            } else {
+                expContainer.innerHTML = `<div style="padding:25px; text-align:center; color:#9ca3af; font-size:13px;"><i class="fa-solid fa-receipt" style="font-size:20px; display:block; margin-bottom:5px;"></i>कोई खर्च दर्ज नहीं है</div>`;
+            }
+        }
+
+        // डेटाबेस राइट ऑपरेशन्स (सिर्फ एडमिन के लिए काम करेंगे)
+        function markAsPaid(id) {
+            if (!isAuthorizedAdmin) return;
+            const amt = prompt("चंदा राशि दर्ज करें (₹):", "500");
+            if (amt && !isNaN(amt)) {
+                db.collection("members").doc(id).update({ status: "paid", amount: parseInt(amt) });
+            }
+        }
+
+        function addExpense() {
+            if (!isAuthorizedAdmin) return;
+            const title = prompt("खर्च का विवरण (जैसे: मंडप, लाइट, डीजे):");
+            const amt = prompt("खर्च की रकम (₹):");
+            if (title && amt && !isNaN(amt)) {
+                db.collection("expenses").add({ title: title, amount: parseInt(amt), timestamp: firebase.firestore.FieldValue.serverTimestamp() });
+            }
+        }
+
+        function deleteExpense(id) {
+            if (!isAuthorizedAdmin) return;
+            if (confirm("क्या आप इस खर्च को मिटाना चाहते हैं?")) {
+                db.collection("expenses").doc(id).delete();
+            }
+        }
+
+        function addNewMember() {
+            if (!isAuthorizedAdmin) return;
+            const name = prompt("नए सदस्य का नाम लिखें:");
+            if (name) {
+                const nextId = `m${localMembers.length + 1}`;
+                db.collection("members").doc(nextId).set({ name: name, status: "pending", amount: 0 });
+            }
+        }
+
+        function editMemberName() {
+            if (!isAuthorizedAdmin) return;
+            const id = prompt("सदस्य की ID दर्ज करें (जैसे: m1, m2):");
+            const member = localMembers.find(m => m.id === id);
+            if (member) {
+                const newName = prompt("सही नाम दर्ज करें:", member.name);
+                if (newName) db.collection("members").doc(id).update({ name: newName });
+            } else if (id) { alert("गलत ID!"); }
+        }
+
+        function filterMembers(type) { 
+            currentFilter = type; 
+            ['all', 'paid', 'pending'].forEach(t => {
+                document.getElementById(`btn-${t}`).className = (t === type) ? "btn-filter active" : "btn-filter";
+            });
+            refreshUI(); 
+        }
+
+        document.getElementById('search-input').addEventListener('input', (e) => { searchQuery = e.target.value; refreshUI(); });
+    </script>
+</body>
+</html>
